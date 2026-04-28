@@ -1,0 +1,15 @@
+---
+title: "US State Classification and Analysis"
+author: "Roger Blake"
+format: revealjs
+---
+
+## Getting up
+
+- Turn off alarm
+- Get out of bed
+
+## Going to sleep
+
+- Get in bed
+- Count sheep
