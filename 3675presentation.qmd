@@ -1,15 +1,118 @@
 ---
-title: "US State Classification and Analysis"
+title: "US State Clustering Analysis"
 author: "Roger Blake"
 format: revealjs
+editor: visual
 ---
 
-## Getting up
+## Setup {visibility="hidden"}
 
-- Turn off alarm
-- Get out of bed
+```{r setup, include=FALSE}
+# Load libraries
+library(factoextra)
+library(knitr)
 
-## Going to sleep
+# 1. Prepare Base Data
+df <- as.data.frame(state.x77)
+vars_to_keep <- c("Income", "Illiteracy", "Life Exp", "Murder", "HS Grad", "Frost", "Area")
+df_subset <- df[, vars_to_keep]
 
-- Get in bed
-- Count sheep
+# Scale data
+df_scaled <- scale(df_subset)
+
+# 2. Add Built-in Census Data for comparison later
+df_subset$Census_Region <- state.region      
+df_subset$Census_Division <- state.division
+```
+
+## Following Census Regions {.scrollable}
+:::: {.columns}
+
+::: {.column width="65%"}
+```{r}
+# Run k-means for k=4
+set.seed(123)
+km_4 <- kmeans(df_scaled, centers = 4, nstart = 25)
+df_subset$Cluster_k4 <- as.factor(km_4$cluster)
+
+# Visualize k=4
+fviz_cluster(km_4, data = df_scaled, main = "K-Means (k=4)")
+```
+:::
+
+::: {.column width="35%" style="font-size: 0.55em;"}
+```{r}
+# Create a mapping dataframe
+state_map_4 <- data.frame(State = rownames(df_subset), Cluster = df_subset$Cluster_k4)
+
+# Aggregate states into a comma-separated list by cluster
+table_4 <- aggregate(State ~ Cluster, data = state_map_4, FUN = function(x) paste(x, collapse = ", "))
+
+# Print clean table
+kable(table_4, col.names = c("Cluster", "States Included"))
+```
+:::
+::::
+## Elbow method {.scrollable}
+:::: {.columns}
+
+::: {.column width="65%"}
+```{r}
+# Subset data to exclude Alaska and Hawaii
+exclude_states <- c("Alaska", "Hawaii")
+df_lower48 <- df_subset[!(rownames(df_subset) %in% exclude_states), ]
+df_scaled_lower48 <- scale(df_lower48[, vars_to_keep])
+
+# Run K=5 with Lower 48 states
+set.seed(123)
+km_5_lower48 <- kmeans(df_scaled_lower48, centers = 5, nstart = 25)
+
+# Visualize Lower 48 Clusters
+fviz_cluster(km_5_lower48, data = df_scaled_lower48, main = "Optimal (k=5) - Lower 48")
+```
+:::
+
+::: {.column width="35%" style="font-size: 0.55em;"}
+```{r}
+# Create mapping for lower 48
+state_map_5 <- data.frame(State = rownames(df_lower48), Cluster = as.factor(km_5_lower48$cluster))
+
+# Aggregate and print
+table_5 <- aggregate(State ~ Cluster, data = state_map_5, FUN = function(x) paste(x, collapse = ", "))
+kable(table_5, col.names = c("Cluster", "States Included"))
+```
+:::
+
+::::
+## Adding in weighted location {.scrollable}
+:::: {.columns}
+
+::: {.column width="65%"}
+```{r}
+# Create spatial dataset
+df_geo <- df_subset[, vars_to_keep]
+df_geo$Longitude <- state.center$x
+df_geo$Latitude <- state.center$y
+df_geo_scaled <- scale(df_geo)
+
+# Run k=4 with spatial awareness
+set.seed(123)
+km_geo_4 <- kmeans(df_geo_scaled, centers = 4, nstart = 25)
+df_subset$Geo_Cluster_4 <- as.factor(km_geo_4$cluster)
+
+# Visualize Spatially-Aware k=4
+fviz_cluster(km_geo_4, data = df_geo_scaled, main = "Geo-Weighted K-Means")
+```
+:::
+
+::: {.column width="35%" style="font-size: 0.55em;"}
+```{r}
+# Create mapping for geo clusters
+state_map_geo <- data.frame(State = rownames(df_subset), Cluster = df_subset$Geo_Cluster_4)
+
+# Aggregate and print
+table_geo <- aggregate(State ~ Cluster, data = state_map_geo, FUN = function(x) paste(x, collapse = ", "))
+kable(table_geo, col.names = c("Cluster", "States Included"))
+```
+:::
+::::
